@@ -53,23 +53,25 @@ Cell *env_lookup_var(Cell *var, Environment *env) {
     ensure(var, TypeSymbol);
     ensure(env, TypePair);
     /* debuglog("length of env, %p\n", env->type); */
-    dolist(frame, env) {
-        Cell *pair = assoc(var, frame);
+    dolist_cdr(frame, env) {
+        Cell *pair = assoc(var, car(frame));
         if (!null(pair)) {
             /* debuglog("variable found, %s\n", (char*)var->val); */
+            Cell *def = cdr(pair);
             debuglog1("variable found, ");
-            debuglnObj(var);
-            return cdr(pair);
+            debugObj(var, ", ");
+            debuglnObj(def);
+            return def;
         }
     }
-    throwError("variable not defined, %s\n", (char*)var->val);
+    return_error("variable not defined, %s\n", (char*)var->val);
 }
 
 Cell *env_set_variable_value(Cell *var, Cell *val, Environment *env) {
     ensure(var, TypeSymbol);
     ensure(env, TypePair);
-    dolist(frame, env) {
-        Cell *pair = assoc(var, frame);
+    dolist_cdr(frame, env) {
+        Cell *pair = assoc(var, car(frame));
         if (!null(pair)) {
             set_cdr(pair, val);
             return val;

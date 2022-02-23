@@ -28,15 +28,9 @@
 #define debuglnObj(cell)
 #endif
 
-#define throwError(msg, ...) ({                                         \
-            char str[128];                                              \
-            sprintf(str, "ERROR: %s, " msg,                             \
-                    __func__, __VA_ARGS__);                             \
-            return make_error(strdup(str));                             \
-        })
 #define ensure(exp, thetype) ({                                         \
             if (exp->type != thetype) {                                 \
-                throwError("%s is not of type %d", #exp, thetype);      \
+                return_error("%s is not of type %d", #exp, thetype);    \
             }})
     
 typedef enum {
@@ -86,10 +80,10 @@ typedef struct {
 
     // The beginning of the contiguous heap of memory that objects are allocated
     // from.
-    void* heap;
+    Cell* heap;
 
     // The beginning of the next chunk of memory to be allocated from the heap.
-    void* next;
+    Cell* next;
 } VM;
 
 
@@ -97,7 +91,6 @@ typedef struct {
 #define cell_type(x) ((x)->type)
 
 Cell *nil(void);
-
 VM *getVM(void);
 void gc(VM* vm);
 
@@ -113,7 +106,14 @@ int count_freeable_obj(Cell *x);
 #define caddr(x)     (car(cdr(cdr(x))))
 
 
-#define make_error(msg) make_cell(TypeError, (void*)msg)
+
+#define return_error(msg, ...) ({                                       \
+            char str[128];                                              \
+            sprintf(str, "ERROR: %s, " msg,                             \
+                    __func__, __VA_ARGS__);                             \
+            return make_cell(TypeError, strdup(str));                   \
+        })
+/* #define make_error(msg) make_cell(TypeError, (void*)msg) */
 
 #define is_atom(x)   ((x)->next == NULL)
 
@@ -130,14 +130,17 @@ int count_freeable_obj(Cell *x);
 
 typedef Cell *(*PrimLispFn)(Cell*);
 
-#define dolist(var, list) for (Cell *var = list; !null(var); var = cdr(var))
+// this is more like doRestOfList
+#define dolist_cdr(var, list) for (Cell *var = list; !null(var); var = cdr(var))
 #define prog1(type, var, ret_exp, body) ({      \
             type var = ret_exp;                 \
             body;                               \
             return var;                         \
         })
+
 #define lisp_true intern("t")
 
+#define falsep(x) (null(x))
 #define to_lisp_bool(x) ((x) ? lisp_true : nil())
 
 void *intern(char *sym);

@@ -204,10 +204,11 @@ void print_expr(Cell *exp) {
         printf("%f", *(float *)exp->val);
     }
     else if (is_primitive(exp)) {
-        printf("<Prim %s %p>", prim_name(exp), exp);
+        printf("<Prim %s %p>", prim_name(exp), (void*)exp);
     }
     else {
         // should not reach this stage
         printf("<%s: unsupported exp type=%d>", __func__, exp->type);
     }
 }
+

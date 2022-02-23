@@ -11,9 +11,9 @@ static Cell sym_nil = {.type = TypeSymbol, .val = NULL, .next = NULL};
 static Cell *symbols = &sym_nil;
 static VM *global_vm = NULL; 
 
-inline Cell *nil(void) { return &sym_nil; }
+Cell *nil(void) { return &sym_nil; }
 
-inline VM *getVM(void) {
+VM *getVM(void) {
     if (global_vm == NULL) {
         // Creates a new VM with an empty stack and an empty (but allocated) heap.
         VM* vm = malloc(sizeof(VM));
@@ -78,19 +78,18 @@ void markAll(VM* vm) {
 // compaction is done.
 void* calculateNewLocations(VM* vm) {
     // Calculate the new locations of the objects in the heap.
-    void* from = vm->heap;
-    void* to = vm->heap;
+    Cell* from = vm->heap;
+    Cell* to = vm->heap;
     while (from < vm->next) {
-        Cell* object = (Cell*)from;
+        Cell* object = from;
         if (object->moveTo) {
             object->moveTo = to;
 
             // We increase the destination address only when we pass a live object.
             // This effectively slides objects up on memory over dead ones.
-            to += sizeof(Cell);
+            to ++;
         }
-
-        from += sizeof(Cell);
+        from ++;
     }
 
     return to;
@@ -114,7 +113,7 @@ void updateAllObjectPointers(VM* vm) {
     }
 
     // Walk the heap, fixing fields in live pairs.
-    void* from = vm->heap;
+    Cell* from = vm->heap;
     while (from < vm->next) {
         Cell* object = (Cell*)from;
 
@@ -123,7 +122,7 @@ void updateAllObjectPointers(VM* vm) {
             object->next = object->next->moveTo;
         }
 
-        from += sizeof(Cell);
+        from += 1;
     }
 }
 
@@ -131,7 +130,7 @@ void updateAllObjectPointers(VM* vm) {
 // end up, and all of the pointers have been fixed, actually slide all of the
 // live objects up in memory.
 void compact(VM* vm) {
-    void* from = vm->heap;
+    Cell* from = vm->heap;
 
     while (from < vm->next) {
         Cell* object = (Cell*)from;
@@ -144,7 +143,7 @@ void compact(VM* vm) {
             to->moveTo = NULL;
         }
 
-        from += sizeof(Cell);
+        from += 1;
     }
 }
 
@@ -170,18 +169,18 @@ void gc(VM* vm) {
 
 
 Cell* newObject(VM* vm) {
-    if ((vm->next + sizeof(Cell)) > (vm->heap + HEAP_SIZE)) {
+    if ((vm->next + 1) > (vm->heap + HEAP_SIZE)) {
         gc(vm);
 
         // If there still isn't room after collection, we can't fit it.
-        if (vm->next + sizeof(Cell) > vm->heap + HEAP_SIZE) {
+        if ((vm->next + 1) > (vm->heap + HEAP_SIZE)) {
             perror("Out of memory");
             exit(1);
         }
     }
 
     vm->numObjs++;
-    vm->next += sizeof(Cell);
+    vm->next += 1;
 
     Cell* object = (Cell*)vm->next;
     return object;
@@ -248,7 +247,7 @@ void *intern(char *sym) {
     if (sym == NULL) return symbols;
 
     /* debuglog("interning symbol %s\n", sym); */
-    dolist(_pair, symbols) {
+    dolist_cdr(_pair, symbols) {
         /* debuglog("interning symbol, %p, %p|\n", car(_pair), cdr(_pair)); */
         if (car(_pair)
             && strncmp(sym, (char*)((Cell*)car(_pair))->val, 32) == 0)
@@ -334,7 +333,7 @@ inline void set_cdr(Cell *c, Cell *val) {
 
 
 Cell *assoc(Cell *sym, Cell *alist) {
-    dolist(c, car(alist)) {
+    dolist_cdr(c, alist) {
         Cell *pair = car(c);
         /* debuglog("env_lookup_var: %p, %d, %s\n", */
         /*          car(pair), ((Cell*)car(pair))->type, var->val); */
@@ -348,7 +347,7 @@ Cell *assoc(Cell *sym, Cell *alist) {
 
 int length(Cell *list) {
     int acc = 0;
-    dolist(c, list) {
+    dolist_cdr(c, list) {
         acc++;
     }
     return acc; 

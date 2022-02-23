@@ -30,7 +30,10 @@ Cell *eval_quote(Cell *expr, Environment *env) {
 def_prim_symbol_test(if)
 
 Cell *eval_if(Cell *expr, Environment *env) {
-    if (null(eval(cadr(expr), env))) {
+    Cell *result = eval(cadr(expr), env);
+    if (is_error(result))
+        return result;
+    else if (null(result)) {
         return null(cdr(cdr(expr)))
             ? eval(cadr(cdr(expr)), env)
             : nil();
@@ -47,7 +50,7 @@ Cell *eval_assignment(Cell *exp, Environment *env) {
     return env_set_variable_value(var, val, env);
 }
 
-def_prim_symbol_test(lambda); // need this test for (eval (lambda ()))
+def_prim_symbol_test(lambda) // need this test for (eval (lambda ()))
 /* def_prim_symbol_test(procedure); */
 
 Cell *make_procedure(Cell *param, Cell *body, Environment *env) {
@@ -92,8 +95,10 @@ def_prim_symbol_test_manual(sequence, "begin")
 
 Cell *eval_sequence(Cell *exps, Environment *env) {
     Cell *out = nil();
-    dolist(exp, exps) {
+    dolist_cdr(exp, exps) {
         out = eval(car(exp), env);
+        if (is_error(out))
+            return out;
     }
     return out;
 }
@@ -107,10 +112,9 @@ Cell *list_of_values(Cell *expr, Environment *env) {
         return nil();
     } else {
         Cell *c = eval(car(expr), env);
+        if (is_error(c))
+            return c;
         return cons(c, list_of_values(cdr(expr), env));
-    /*     return list_of_values(cdr(expr), */
-    /*                           env, */
-    /*                           cons(c, acc)); */
     }
 }
 
@@ -133,24 +137,39 @@ Cell *apply(Cell *func, Cell *args) {
         debuglnObj(args);
         return ((PrimLispFn)func->val)(args);
     }
-    debuglog1("ERROR unsupported function\n");
     debuglog1("");
     debugObj(func, ", ");
     debuglnObj(args);
-    return nil();
+    return_error("unsupported function %s", "\n");
 }
 
 Cell *eval_apply(Cell *expr, Environment *env) {
     debuglog1("");
     debugObj(expr, ", ");
-    printf("env = %p\n", env);
+    printf("env = %p\n", (void*)env);
     Cell *var = car(expr);
     Cell *args = cdr(expr);
     Cell *fn = eval(var, env);
-    if (null(fn)) {
+
+    if (is_error(fn))
+        return fn;
+    else if (null(fn)) {
         return nil();
     }
-    Cell *args_vals = list_of_values(args, env);
+
+    // some low level manipulation to make code more transparent.
+    Cell *acc = make_cell(TypePair, NULL);
+    Cell *ptr = acc;
+    dolist_cdr(arg, args) {
+        Cell *val = eval(car(arg), env);
+        if (is_error(val))
+            return val;
+        acc->next = cons(val, nil());
+        acc = acc->next;
+    }
+    Cell *args_vals = ptr->next;
+    ptr->next = NULL;
+    /* Cell *args_vals = list_of_values(args, env); */
     return apply(fn, args_vals);
 }
 
@@ -158,7 +177,7 @@ Cell *eval(Cell *exp, Environment *env)
 {
     debuglog1("");
     debugObj(exp, ", ");
-    printf("env = %p\n", env);
+    printf("env = %p\n", (void*)env);
     if (is_self_evaluating(exp)) {
         // dont print, segment fault if exp is number
         /* debuglog("is self evaluate%s\n", (char*)exp->val); */
@@ -197,7 +216,7 @@ Cell *eval(Cell *exp, Environment *env)
     }
 
     // (proc exp*)
-    printf("not a function\n");
+    printf("unexpected lisp expression!\n");
     exit(1);
 }
 
