@@ -15,3 +15,5 @@ https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29#Escape_a
 ** escape analysis
 * Typing
 
+* Register Machine or VM
+Using C++ to implement register machines
